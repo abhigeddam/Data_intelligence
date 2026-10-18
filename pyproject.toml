@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omni-data-intelligence"
+version = "1.0.0"
+description = "Autonomous Multi-Model Data Intelligence Agent Platform for SMBs"
+readme = "README.md"
+authors = [{ name = "Abhiram Tarun Geddam" }]
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "scikit-learn>=1.4.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "streamlit>=1.32.0",
+    "plotly>=5.20.0",
+    "pydantic>=2.6.0",
+    "python-multipart>=0.0.9",
+    "requests>=2.31.0",
+    "openpyxl>=3.1.2",
+    "jinja2>=3.1.3",
