@@ -57,3 +57,56 @@ class DataQualityScore(BaseModel):
     recommendations: List[str] = Field(default_factory=list)
 
 
+class DatasetProfile(BaseModel):
+    business_type: BusinessType
+    shape: List[int]
+    memory_usage_mb: float
+    columns: Dict[str, ColumnProfile]
+    data_quality: DataQualityScore
+    detected_datetime_col: Optional[str] = None
+    detected_target_col: Optional[str] = None
+    detected_customer_id_col: Optional[str] = None
+    detected_category_col: Optional[str] = None
+    detected_quantity_col: Optional[str] = None
+    detected_cost_col: Optional[str] = None
+    summary_text: str = ""
+
+
+class HypothesisPriority(str, Enum):
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
+class Hypothesis(BaseModel):
+    id: str
+    title: str
+    priority: HypothesisPriority
+    business_question: str
+    rationale: str
+    target_metric: str
+    recommended_model: str
+
+
+class ModelType(str, Enum):
+    TIME_SERIES = "time_series_forecast"
+    CUSTOMER_SEGMENTATION = "customer_segmentation"
+    CHURN_PREDICTION = "churn_prediction"
+    PRICE_ELASTICITY = "price_elasticity"
+    ANOMALY_DETECTION = "anomaly_detection"
+
+
+class ModelResult(BaseModel):
+    model_type: ModelType
+    model_name: str
+    status: str  # "success", "warning", "skipped", "error"
+    metrics: Dict[str, Any] = Field(default_factory=dict)
+    insights: List[str] = Field(default_factory=list)
+    quantitative_findings: Dict[str, Any] = Field(default_factory=dict)
+    tables: Dict[str, List[Dict[str, Any]]] = Field(default_factory=dict)
+    charts_data: Dict[str, Any] = Field(default_factory=dict)
+    execution_time_seconds: float = 0.0
+    error_message: Optional[str] = None
+
+
