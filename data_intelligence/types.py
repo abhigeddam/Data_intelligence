@@ -110,3 +110,39 @@ class ModelResult(BaseModel):
     error_message: Optional[str] = None
 
 
+class TimeHorizon(str, Enum):
+    DAYS_7 = "7_days"
+    DAYS_30 = "30_days"
+    DAYS_90 = "90_days"
+
+
+class ActionItem(BaseModel):
+    time_horizon: TimeHorizon
+    title: str
+    department: str  # "Sales", "Marketing", "Operations", "Finance", "Executive"
+    description: str
+    estimated_impact_dollars: Optional[float] = None
+    difficulty: str  # "Low", "Medium", "High"
+    expected_outcome: str
+
+
+class ExecutiveSummary(BaseModel):
+    business_health_overview: str
+    key_growth_drivers: List[str] = Field(default_factory=list)
+    top_operational_risks: List[str] = Field(default_factory=list)
+    quantified_roi_opportunity: float = 0.0
+    playbook_7_days: List[ActionItem] = Field(default_factory=list)
+    playbook_30_days: List[ActionItem] = Field(default_factory=list)
+    playbook_90_days: List[ActionItem] = Field(default_factory=list)
+    concluding_verdict: str = ""
+
+
+class AuditReport(BaseModel):
+    audit_id: str
+    dataset_name: str
+    business_type: BusinessType
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    dataset_profile: DatasetProfile
+    hypotheses: List[Hypothesis] = Field(default_factory=list)
+    model_results: Dict[str, ModelResult] = Field(default_factory=dict)
+    executive_summary: ExecutiveSummary
