@@ -28,3 +28,32 @@ class ColumnSemanticType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ColumnProfile(BaseModel):
+    name: str
+    semantic_type: ColumnSemanticType
+    dtype: str
+    total_count: int
+    missing_count: int
+    missing_pct: float
+    unique_count: int
+    unique_pct: float
+    is_constant: bool = False
+    is_unique: bool = False
+    stats: Dict[str, Any] = Field(default_factory=dict)
+    sample_values: List[Any] = Field(default_factory=list)
+
+
+class DataQualityScore(BaseModel):
+    overall_score: float = Field(ge=0.0, le=100.0)
+    completeness_score: float = Field(ge=0.0, le=100.0)
+    uniqueness_score: float = Field(ge=0.0, le=100.0)
+    consistency_score: float = Field(ge=0.0, le=100.0)
+    total_rows: int
+    total_columns: int
+    total_duplicates: int
+    columns_with_missing: List[str] = Field(default_factory=list)
+    critical_issues: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+
+
