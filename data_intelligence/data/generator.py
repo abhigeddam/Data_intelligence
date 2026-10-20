@@ -83,5 +83,60 @@ def generate_retail_ecommerce_data(
         unit_cost = round(base_unit_price * (1 - cat_info["margin"]), 2)
 
         gross_revenue = round(actual_unit_price * qty, 2)
+        total_cost = round(unit_cost * qty, 2)
+        net_profit = round(gross_revenue - total_cost, 2)
 
-        return pd.DataFrame()
+        records.append({
+            "order_id": f"ORD-{20250000 + i}",
+            "order_date": tx_date.strftime("%Y-%m-%d"),
+            "customer_id": cust_id,
+            "product_id": f"PROD-{cat[:3].upper()}-{np.random.randint(100, 150)}",
+            "product_category": cat,
+            "unit_price": actual_unit_price,
+            "quantity": qty,
+            "discount_rate": discount_rate,
+            "unit_cost": unit_cost,
+            "gross_revenue": gross_revenue,
+            "net_profit": net_profit,
+            "channel": np.random.choice(channels, p=channel_probs),
+            "payment_method": np.random.choice(payment_methods),
+        })
+
+    df = pd.DataFrame(records)
+    df = df.sort_values(by="order_date").reset_index(drop=True)
+    return df
+
+
+def generate_saas_subscription_data(
+    n_accounts: int = 1200,
+    random_seed: int = 42,
+) -> pd.DataFrame:
+    """
+    Generate realistic B2B SaaS subscription and account retention dataset.
+    Features:
+    - Tiered pricing (Starter, Growth, Scale, Enterprise)
+    - Churn probability tied directly to usage, seat utilization, support tickets, and NPS
+    """
+    np.random.seed(random_seed)
+    random.seed(random_seed)
+
+    start_date = datetime(2024, 6, 1)
+    end_date = datetime(2026, 10, 31)
+    total_days = (end_date - start_date).days
+
+    tiers = {
+        "Starter": {"base_mrr": 49.0, "seat_cap": 3, "cac": 280.0},
+        "Growth": {"base_mrr": 199.0, "seat_cap": 12, "cac": 750.0},
+        "Scale": {"base_mrr": 499.0, "seat_cap": 30, "cac": 1800.0},
+        "Enterprise": {"base_mrr": 1499.0, "seat_cap": 100, "cac": 4500.0},
+    }
+    tier_names = list(tiers.keys())
+    tier_probs = [0.45, 0.35, 0.15, 0.05]
+
+    records = []
+    for i in range(n_accounts):
+        signup_offset = np.random.randint(0, total_days - 60)
+        signup_date = start_date + timedelta(days=signup_offset)
+        tenure_months = max(1, int((end_date - signup_date).days / 30.4))
+
+        return df
