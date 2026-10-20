@@ -139,4 +139,39 @@ def generate_saas_subscription_data(
         signup_date = start_date + timedelta(days=signup_offset)
         tenure_months = max(1, int((end_date - signup_date).days / 30.4))
 
+        tier = np.random.choice(tier_names, p=tier_probs)
+        tier_cfg = tiers[tier]
+
+        seats_purchased = max(1, int(tier_cfg["seat_cap"] * np.random.uniform(0.6, 1.0)))
+        seat_utilization = np.random.beta(a=3.0, b=1.5)
+        seats_active = max(1, int(seats_purchased * seat_utilization))
+
+        login_frequency_weekly = float(np.random.gamma(shape=3.5, scale=1.2))
+        support_tickets_30d = int(np.random.poisson(lam=1.6))
+        nps_score = int(np.clip(np.random.normal(loc=7.8, scale=2.1), 0, 10))
+
+        # Churn probability model based on behavioral risk factors
+        churn_logit = (
+            -2.2
+            - 0.35 * (seats_active / seats_purchased)
+            - 0.25 * login_frequency_weekly
+            + 0.45 * support_tickets_30d
+            - 0.30 * (nps_score - 5)
+            - 0.04 * tenure_months
+        )
+        churn_prob = 1.0 / (1.0 + np.exp(-churn_logit))
+        churned = bool(np.random.rand() < churn_prob)
+
+        mrr = round(tier_cfg["base_mrr"] * (1.0 + 0.08 * (seats_purchased - 1)), 2)
+        cac = round(tier_cfg["cac"] * np.random.uniform(0.85, 1.25), 2)
+        lifetime_value = round(mrr * (tenure_months if churned else (tenure_months + 12)), 2)
+
+        records.append({
+            "account_id": f"ACCT-{5000 + i}",
+            "account_name": f"Company {chr(65 + (i % 26))}{i:03d}",
+            "signup_date": signup_date.strftime("%Y-%m-%d"),
+            "plan_tier": tier,
+            "mrr": mrr,
+            "tenure_months": tenure_months,
+
         return df
