@@ -239,4 +239,67 @@ def generate_restaurant_operations_data(
         delivery_sales = round(delivery_covers * (avg_check * 0.92), 2)
         total_revenue = round(dine_in_sales + delivery_sales, 2)
 
-        return df
+        # Operational costs
+        food_cost_pct = np.random.uniform(0.28, 0.33)
+        food_cost = round(total_revenue * food_cost_pct, 2)
+
+        base_labor = 1100.0 if not is_weekend else 1650.0
+        labor_cost = round(base_labor + covers * 3.5 + np.random.normal(0, 50), 2)
+
+        marketing_spend = round(np.random.choice([0.0, 50.0, 120.0, 250.0], p=[0.4, 0.3, 0.2, 0.1]), 2)
+        fixed_overhead = 450.0  # rent, utilities allocation
+
+        total_costs = round(food_cost + labor_cost + marketing_spend + fixed_overhead, 2)
+        operating_profit = round(total_revenue - total_costs, 2)
+        table_turnover_rate = round(np.clip(covers / 65.0, 0.8, 3.8), 2)
+
+        records.append({
+            "date": current_date.strftime("%Y-%m-%d"),
+            "day_of_week": dow,
+            "is_weekend": 1 if is_weekend else 0,
+            "weather": weather,
+            "covers_total": covers,
+            "dine_in_covers": dine_in_covers,
+            "delivery_covers": delivery_covers,
+            "average_check_usd": avg_check,
+            "dine_in_sales": dine_in_sales,
+            "delivery_sales": delivery_sales,
+            "total_revenue": total_revenue,
+            "food_cost": food_cost,
+            "labor_cost": labor_cost,
+            "marketing_spend": marketing_spend,
+            "operating_profit": operating_profit,
+            "profit_margin_pct": round((operating_profit / total_revenue) * 100, 2),
+            "table_turnover_rate": table_turnover_rate,
+        })
+
+    df = pd.DataFrame(records)
+    return df
+
+
+def save_sample_datasets(target_dir: Path | None = None) -> Tuple[Path, Path, Path]:
+    """
+    Generate and save standard sample datasets into the samples directory.
+    """
+    out_dir = target_dir or settings.samples_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    retail_path = out_dir / "retail_ecommerce_sales.csv"
+    saas_path = out_dir / "saas_customer_retention.csv"
+    restaurant_path = out_dir / "restaurant_operations.csv"
+
+    df_retail = generate_retail_ecommerce_data()
+    df_retail.to_csv(retail_path, index=False)
+
+    df_saas = generate_saas_subscription_data()
+    df_saas.to_csv(saas_path, index=False)
+
+    df_rest = generate_restaurant_operations_data()
+    df_rest.to_csv(restaurant_path, index=False)
+
+    return retail_path, saas_path, restaurant_path
+
+
+if __name__ == "__main__":
+    p1, p2, p3 = save_sample_datasets()
+    print(f"Generated sample datasets:\n- {p1}\n- {p2}\n- {p3}")
