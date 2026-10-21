@@ -173,5 +173,70 @@ def generate_saas_subscription_data(
             "plan_tier": tier,
             "mrr": mrr,
             "tenure_months": tenure_months,
+            "seats_purchased": seats_purchased,
+            "seats_active": seats_active,
+            "seat_utilization_pct": round(seats_active / seats_purchased * 100, 1),
+            "weekly_login_frequency": round(login_frequency_weekly, 2),
+            "support_tickets_30d": support_tickets_30d,
+            "nps_score": nps_score,
+            "customer_acquisition_cost": cac,
+            "estimated_ltv": lifetime_value,
+            "churned": 1 if churned else 0,
+        })
+
+    df = pd.DataFrame(records)
+    df = df.sort_values(by="signup_date").reset_index(drop=True)
+    return df
+
+
+def generate_restaurant_operations_data(
+    n_days: int = 650,
+    random_seed: int = 42,
+) -> pd.DataFrame:
+    """
+    Generate realistic hospitality / restaurant operational and financial dataset.
+    Features:
+    - Daily covers, check size, labor and food costs
+    - Weekend spikes, weather drag, dine-in vs delivery mix
+    """
+    np.random.seed(random_seed)
+    random.seed(random_seed)
+
+    start_date = datetime(2025, 1, 1)
+    weather_types = ["Sunny", "Cloudy", "Rainy", "Cold Wave", "Mild"]
+    weather_weights = [0.45, 0.25, 0.15, 0.08, 0.07]
+
+    records = []
+    base_covers = 140
+    for day_idx in range(n_days):
+        current_date = start_date + timedelta(days=day_idx)
+        dow = current_date.strftime("%A")
+        is_weekend = dow in ["Friday", "Saturday", "Sunday"]
+
+        # Weather effect
+        weather = np.random.choice(weather_types, p=weather_weights)
+        weather_multiplier = 1.0
+        if weather == "Rainy":
+            weather_multiplier = 0.82
+        elif weather == "Cold Wave":
+            weather_multiplier = 0.78
+        elif weather == "Sunny" and is_weekend:
+            weather_multiplier = 1.15
+
+        # Weekend cover volume
+        day_mult = 1.65 if dow in ["Friday", "Saturday"] else (1.30 if dow == "Sunday" else 0.90)
+        daily_growth = 1.0 + (day_idx / n_days) * 0.18  # steady organic growth
+        expected_covers = base_covers * day_mult * weather_multiplier * daily_growth
+        covers = max(40, int(np.random.normal(expected_covers, scale=18)))
+
+        # Average check size ($32 - $58)
+        avg_check = round(np.random.normal(44.0 + (5.0 if is_weekend else 0.0), scale=4.2), 2)
+        dine_in_ratio = 0.75 if not (weather in ["Rainy", "Cold Wave"]) else 0.55
+        dine_in_covers = int(covers * dine_in_ratio)
+        delivery_covers = covers - dine_in_covers
+
+        dine_in_sales = round(dine_in_covers * avg_check, 2)
+        delivery_sales = round(delivery_covers * (avg_check * 0.92), 2)
+        total_revenue = round(dine_in_sales + delivery_sales, 2)
 
         return df
