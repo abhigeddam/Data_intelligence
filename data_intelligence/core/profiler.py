@@ -278,5 +278,72 @@ class DataProfiler:
             recommendations.append("Data health is robust and ready for multi-model synthesis.")
 
         return DataQualityScore(
+            overall_score=overall,
+            completeness_score=round(completeness_score, 1),
+            uniqueness_score=round(uniqueness_score, 1),
+            consistency_score=round(consistency_score, 1),
+            total_rows=n_rows,
+            total_columns=n_cols,
+            total_duplicates=n_dups,
+            columns_with_missing=cols_with_missing,
+            critical_issues=critical_issues,
+            warnings=warnings,
+            recommendations=recommendations,
+        )
 
+    def _detect_datetime_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        # First preference: explicit datetime semantic type
+        for name, profile in cols.items():
+            if profile.semantic_type == ColumnSemanticType.DATETIME:
+                return name
+        # Second preference: keyword match
+        for name in cols.keys():
+            if any(kw in name.lower() for kw in self.DATETIME_KEYWORDS):
+                return name
+        return None
+
+    def _detect_target_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        # Search for revenue / sales / profit / mrr / target metrics
+        for kw in ["total_revenue", "gross_revenue", "revenue", "mrr", "total_sales", "net_profit", "sales"]:
+            for name in cols.keys():
+                if name.lower() == kw:
+                    return name
+
+        for name, profile in cols.items():
+            if profile.semantic_type == ColumnSemanticType.NUMERIC_CONTINUOUS:
+                if any(kw in name.lower() for kw in self.REVENUE_KEYWORDS):
+                    return name
+        return None
+
+    def _detect_customer_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        for kw in ["customer_id", "account_id", "user_id", "client_id"]:
+            for name in cols.keys():
+                if name.lower() == kw:
+                    return name
+        for name, profile in cols.items():
+            if profile.semantic_type == ColumnSemanticType.IDENTIFIER:
+                if any(kw in name.lower() for kw in self.CUSTOMER_KEYWORDS):
+                    return name
+        return None
+
+    def _detect_category_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        for kw in ["product_category", "plan_tier", "category", "channel", "department"]:
+            for name in cols.keys():
+                if name.lower() == kw:
+                    return name
+        for name, profile in cols.items():
+            if profile.semantic_type == ColumnSemanticType.CATEGORICAL and 2 <= profile.unique_count <= 20:
+                return name
+        return None
+
+    def _detect_quantity_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        for name in cols.keys():
+            if any(kw in name.lower() for kw in self.QUANTITY_KEYWORDS):
+                return name
+        return None
+
+    def _detect_cost_column(self, df: pd.DataFrame, cols: Dict[str, ColumnProfile]) -> Optional[str]:
+        for name in cols.keys():
+            if any(kw in name.lower() for kw in self.COST_KEYWORDS):
+                return name
         return None
