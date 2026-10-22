@@ -63,5 +63,80 @@ class DataProfiler:
         cost_col = self._detect_cost_column(df_clean, columns_profile)
 
         summary_text = (
+            f"Dataset '{dataset_name}' contains {n_rows:,} records and {n_cols} attributes "
+            f"classified under {b_type.value.upper()} domain. Overall data hygiene rating is "
+            f"{quality_score.overall_score:.1f}/100. Primary metric detected: '{target_col or 'N/A'}'."
+        )
+
+        return DatasetProfile(
+            business_type=b_type,
+            shape=[n_rows, n_cols],
+            memory_usage_mb=memory_mb,
+            columns=columns_profile,
+            data_quality=quality_score,
+            detected_datetime_col=dt_col,
+            detected_target_col=target_col,
+            detected_customer_id_col=cust_col,
+            detected_category_col=cat_col,
+            detected_quantity_col=qty_col,
+            detected_cost_col=cost_col,
+            summary_text=summary_text,
+        )
+
+    def _infer_business_type(self, df: pd.DataFrame) -> BusinessType:
+        """
+        Infer business category from column nomenclature and presence of key attributes.
+        """
+        cols_lower = [str(c).lower() for c in df.columns]
+
+        if any(w in cols_lower for w in ["mrr", "arr", "seats_purchased", "nps_score", "plan_tier"]):
+            return BusinessType.SAAS
+        if any(w in cols_lower for w in ["covers_total", "dine_in_sales", "delivery_sales", "table_turnover_rate"]):
+            return BusinessType.RESTAURANT
+        if any(w in cols_lower for w in ["product_category", "unit_price", "discount_rate", "order_id"]):
+            return BusinessType.RETAIL
+        if any("ecommerce" in c or "cart" in c or "sku" in c for c in cols_lower):
+            return BusinessType.ECOMMERCE
+        return BusinessType.GENERAL
+
+    def _profile_column(self, series: pd.Series) -> ColumnProfile:
+        """
+        Deep inspection of a single pandas Series.
+        """
+        col_name = str(series.name)
+        total_count = len(series)
+        missing_count = int(series.isna().sum())
+        missing_pct = round((missing_count / total_count) * 100, 2) if total_count > 0 else 0.0
+
+        non_na = series.dropna()
+        unique_count = int(non_na.nunique())
+        unique_pct = round((unique_count / total_count) * 100, 2) if total_count > 0 else 0.0
+        is_constant = unique_count <= 1 and total_count > 0
+        is_unique = unique_count == total_count and total_count > 0
+
+        # Semantic Type Inference
+        semantic_type = self._infer_semantic_type(col_name, series, non_na, unique_count, total_count)
+
+        # Statistics computation
+        stats: Dict[str, Any] = {}
+        sample_vals = non_na.head(5).tolist()
+
+        if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
+            if len(non_na) > 0:
+                stats = {
+                    "mean": float(round(non_na.mean(), 2)),
+                    "std": float(round(non_na.std(), 2)) if len(non_na) > 1 else 0.0,
+                    "min": float(round(non_na.min(), 2)),
+                    "25%": float(round(non_na.quantile(0.25), 2)),
+                    "50%": float(round(non_na.median(), 2)),
+                    "75%": float(round(non_na.quantile(0.75), 2)),
+                    "max": float(round(non_na.max(), 2)),
+                }
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            if len(non_na) > 0:
+                stats = {
+                    "min_date": str(non_na.min()),
+                    "max_date": str(non_na.max()),
+                    "date_span_days": int((non_na.max() - non_na.min()).days),
 
         return None
