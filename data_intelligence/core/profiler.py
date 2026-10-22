@@ -208,5 +208,75 @@ class DataProfiler:
                 return ColumnSemanticType.NUMERIC_CONTINUOUS
             return ColumnSemanticType.NUMERIC_DISCRETE
 
+        # 5. Categorical vs free text
+        if unique_count <= 50 or (unique_count / max(1, total_count) < 0.2):
+            return ColumnSemanticType.CATEGORICAL
+
+        return ColumnSemanticType.TEXT
+
+    def _compute_quality_score(
+        self,
+        df: pd.DataFrame,
+        cols: Dict[str, ColumnProfile],
+    ) -> DataQualityScore:
+        """
+        Calculate an interpretable 0-100 data hygiene score with diagnostic alerts.
+        """
+        n_rows, n_cols = df.shape
+        if n_rows == 0:
+            return DataQualityScore(
+                overall_score=0.0,
+                completeness_score=0.0,
+                uniqueness_score=0.0,
+                consistency_score=0.0,
+                total_rows=0,
+                total_columns=n_cols,
+                total_duplicates=0,
+                critical_issues=["Dataset is empty."],
+            )
+
+        # Duplicate check
+        n_dups = int(df.duplicated().sum())
+        uniqueness_score = max(0.0, 100.0 - (n_dups / n_rows * 100.0 * 2.0))
+
+        # Missingness check
+        total_cells = n_rows * n_cols
+        total_missing = sum(c.missing_count for c in cols.values())
+        missing_rate = total_missing / total_cells if total_cells > 0 else 0.0
+        completeness_score = max(0.0, 100.0 - (missing_rate * 100.0 * 3.0))
+
+        # Consistency check (constant columns, broken types)
+        constant_cols = [c.name for c in cols.values() if c.is_constant]
+        consistency_penalty = len(constant_cols) * 8.0
+        consistency_score = max(0.0, 100.0 - consistency_penalty)
+
+        overall = round(
+            0.45 * completeness_score + 0.35 * uniqueness_score + 0.20 * consistency_score, 1
+        )
+
+        critical_issues: List[str] = []
+        warnings: List[str] = []
+        recommendations: List[str] = []
+        cols_with_missing = [c.name for c in cols.values() if c.missing_count > 0]
+
+        if n_dups > 0:
+            pct_dup = round(n_dups / n_rows * 100, 1)
+            warnings.append(f"Found {n_dups:,} duplicate rows ({pct_dup}% of total).")
+            recommendations.append("Deduplicate dataset before building predictive models.")
+
+        if missing_rate > 0.15:
+            critical_issues.append(f"High missingness: {round(missing_rate * 100, 1)}% of total data cells are null.")
+            recommendations.append("Apply automated imputation for critical numerical features.")
+        elif missing_rate > 0.02:
+            warnings.append(f"Moderate missingness detected ({round(missing_rate * 100, 1)}% null values).")
+
+        if constant_cols:
+            warnings.append(f"Constant columns with zero variance detected: {', '.join(constant_cols)}")
+            recommendations.append(f"Drop uninformative columns: {', '.join(constant_cols)}")
+
+        if overall >= 85.0 and not critical_issues:
+            recommendations.append("Data health is robust and ready for multi-model synthesis.")
+
+        return DataQualityScore(
 
         return None
