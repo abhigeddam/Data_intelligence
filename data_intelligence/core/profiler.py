@@ -138,5 +138,75 @@ class DataProfiler:
                     "min_date": str(non_na.min()),
                     "max_date": str(non_na.max()),
                     "date_span_days": int((non_na.max() - non_na.min()).days),
+                }
+        else:
+            # Categorical / string distribution
+            if len(non_na) > 0:
+                top_counts = non_na.value_counts().head(5).to_dict()
+                stats = {
+                    "top_categories": {str(k): int(v) for k, v in top_counts.items()}
+                }
+
+        return ColumnProfile(
+            name=col_name,
+            semantic_type=semantic_type,
+            dtype=str(series.dtype),
+            total_count=total_count,
+            missing_count=missing_count,
+            missing_pct=missing_pct,
+            unique_count=unique_count,
+            unique_pct=unique_pct,
+            is_constant=is_constant,
+            is_unique=is_unique,
+            stats=stats,
+            sample_values=sample_vals,
+        )
+
+    def _infer_semantic_type(
+        self,
+        name: str,
+        series: pd.Series,
+        non_na: pd.Series,
+        unique_count: int,
+        total_count: int,
+    ) -> ColumnSemanticType:
+        """
+        Infer semantic data type based on naming patterns and distribution values.
+        """
+        name_lower = name.lower()
+
+        # 1. Identifier
+        if (unique_count / max(1, total_count) > 0.85) and any(
+            id_kw in name_lower for id_kw in ["id", "uuid", "hash", "key", "account_name"]
+        ):
+            return ColumnSemanticType.IDENTIFIER
+
+        # 2. Boolean
+        if pd.api.types.is_bool_dtype(series) or (
+            pd.api.types.is_numeric_dtype(series)
+            and set(non_na.unique()).issubset({0, 1})
+            and len(non_na.unique()) <= 2
+        ):
+            return ColumnSemanticType.BOOLEAN
+
+        # 3. Datetime
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return ColumnSemanticType.DATETIME
+
+        # Check if string column is actually a datetime
+        if series.dtype == "object" and len(non_na) > 0:
+            if any(kw in name_lower for kw in self.DATETIME_KEYWORDS):
+                try:
+                    pd.to_datetime(non_na.head(20), errors="raise")
+                    return ColumnSemanticType.DATETIME
+                except Exception:
+                    pass
+
+        # 4. Numeric continuous vs discrete
+        if pd.api.types.is_numeric_dtype(series):
+            if pd.api.types.is_float_dtype(series) or unique_count > 25:
+                return ColumnSemanticType.NUMERIC_CONTINUOUS
+            return ColumnSemanticType.NUMERIC_DISCRETE
+
 
         return None
