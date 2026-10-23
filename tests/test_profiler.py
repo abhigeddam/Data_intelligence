@@ -26,3 +26,29 @@ def sample_raw_dataframe():
 
 
 def test_data_profiler_semantics(sample_raw_dataframe):
+    profiler = DataProfiler()
+    profile = profiler.profile(sample_raw_dataframe, dataset_name="test_order_data")
+
+    assert profile.shape == [5, 8]
+    assert profile.detected_datetime_col == "order_date"
+    assert profile.detected_target_col == "gross_revenue"
+    assert profile.detected_customer_id_col == "customer_id"
+    assert profile.detected_category_col == "product_category"
+    assert profile.detected_quantity_col == "quantity"
+    assert profile.columns["constant_col"].is_constant is True
+    assert profile.data_quality.total_duplicates == 1
+    assert "gross_revenue" in profile.data_quality.columns_with_missing
+
+
+def test_data_cleaner(sample_raw_dataframe):
+    profiler = DataProfiler()
+    profile = profiler.profile(sample_raw_dataframe)
+
+    cleaner = DataCleaner(profile)
+    cleaned_df, audit = cleaner.clean(sample_raw_dataframe)
+
+    assert audit["duplicates_removed"] == 1
+    assert "constant_col" in audit["dropped_columns"]
+    assert "constant_col" not in cleaned_df.columns
+    assert cleaned_df["gross_revenue"].isna().sum() == 0
+    assert len(cleaned_df) == 4
