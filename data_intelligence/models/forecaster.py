@@ -213,5 +213,12 @@ class TimeSeriesForecaster:
                 },
                 execution_time_seconds=round(time.time() - start_time, 2),
             )
-
-        return None
+        except Exception as e:
+            return ModelResult(
+                model_type=ModelType.TIME_SERIES,
+                model_name="Ensemble Forecaster",
+                status="error",
+                error_message=str(e),
+                insights=[f"Forecasting encountered an error: {str(e)}"],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
