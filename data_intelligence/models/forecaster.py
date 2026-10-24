@@ -108,5 +108,60 @@ class TimeSeriesForecaster:
 
             future_df = pd.DataFrame({"date": future_dates})
             future_df["day_idx"] = [last_idx + 1 + i for i in range(self.horizon_days)]
+            future_df["dow"] = future_df["date"].dt.day_of_week
+            future_df["is_weekend"] = future_df["dow"].isin([5, 6]).astype(int)
+
+            future_dow = pd.get_dummies(future_df["dow"], prefix="dow")
+            # Ensure all columns present
+            for col in dow_dummies.columns:
+                if col not in future_dow.columns:
+                    future_dow[col] = 0
+            future_X = pd.concat([future_df[["day_idx", "is_weekend"]], future_dow[dow_dummies.columns]], axis=1)
+
+            future_preds = np.clip(model_full.predict(future_X), 0, None)
+
+            # Residual standard deviation for confidence intervals
+            residuals = y - in_sample_preds
+            res_std = float(np.std(residuals))
+            upper_bound = np.round(future_preds + 1.96 * res_std, 2)
+            lower_bound = np.round(np.clip(future_preds - 1.96 * res_std, 0, None), 2)
+            future_preds = np.round(future_preds, 2)
+
+            # 5. Extract Strategic Business Insights
+            total_historical = float(np.sum(y))
+            avg_daily_actual = float(np.mean(y[-self.horizon_days:])) if len(y) >= self.horizon_days else float(np.mean(y))
+            projected_total = float(np.sum(future_preds))
+            avg_daily_projected = float(np.mean(future_preds))
+            growth_rate_pct = round(((avg_daily_projected - avg_daily_actual) / max(1.0, avg_daily_actual)) * 100, 2)
+
+            # Day of week seasonality analysis
+            dow_labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+            daily_ts["dow_name"] = daily_ts["date"].dt.day_name()
+            dow_means = daily_ts.groupby("dow_name")["actual"].mean().to_dict()
+            sorted_dow = sorted(dow_means.items(), key=lambda x: x[1], reverse=True)
+            top_day, top_day_val = sorted_dow[0] if sorted_dow else ("N/A", 0)
+            lowest_day, lowest_day_val = sorted_dow[-1] if sorted_dow else ("N/A", 0)
+
+            insights = [
+                f"Projected next {self.horizon_days}-day cumulative {t_col}: ${projected_total:,.2f} "
+                f"({'+' if growth_rate_pct >= 0 else ''}{growth_rate_pct}% vs preceding {self.horizon_days}-day run-rate).",
+                f"Peak volume occurs on {top_day}s (${top_day_val:,.2f} avg/day), while {lowest_day}s exhibit lowest demand (${lowest_day_val:,.2f} avg/day).",
+                f"Model reliability: Mean Absolute Percentage Error (MAPE) is {mape:.1f}% with an R² fit of {r2:.2f}.",
+            ]
+
+            if growth_rate_pct < -3.0:
+                insights.append(f"Warning: Forecast signals a {abs(growth_rate_pct)}% deceleration in baseline velocity over the next month.")
+            elif growth_rate_pct > 5.0:
+                insights.append(f"Growth momentum: Upward trajectory indicates expansion demand of +{growth_rate_pct}%. Ensure inventory & staffing capacity.")
+
+            # Tables for UI / reports
+            forecast_table = [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "projected": float(p),
+                    "lower_ci_95": float(lb),
+                    "upper_ci_95": float(ub),
+                }
+                for d, p, lb, ub in zip(future_dates, future_preds, lower_bound, upper_bound)
 
         return None
