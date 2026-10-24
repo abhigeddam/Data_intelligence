@@ -163,5 +163,55 @@ class TimeSeriesForecaster:
                     "upper_ci_95": float(ub),
                 }
                 for d, p, lb, ub in zip(future_dates, future_preds, lower_bound, upper_bound)
+            ]
+
+            history_sample = [
+                {
+                    "date": d.strftime("%Y-%m-%d"),
+                    "actual": float(a),
+                    "fitted": float(f),
+                }
+                for d, a, f in zip(daily_ts["date"][-60:], daily_ts["actual"][-60:], in_sample_preds[-60:])
+            ]
+
+            dow_table = [{"day_of_week": day, "average_value": round(float(val), 2)} for day, val in sorted_dow]
+
+            return ModelResult(
+                model_type=ModelType.TIME_SERIES,
+                model_name=f"Ensemble Forecaster ({t_col})",
+                status="success",
+                metrics={
+                    "MAE": round(mae, 2),
+                    "RMSE": round(rmse, 2),
+                    "MAPE_pct": round(mape, 2),
+                    "R2_score": round(r2, 3),
+                    "horizon_days": self.horizon_days,
+                },
+                insights=insights,
+                quantitative_findings={
+                    "projected_total": round(projected_total, 2),
+                    "growth_rate_pct": growth_rate_pct,
+                    "avg_daily_projected": round(avg_daily_projected, 2),
+                    "top_day": top_day,
+                    "top_day_avg": round(float(top_day_val), 2),
+                    "lowest_day": lowest_day,
+                    "lowest_day_avg": round(float(lowest_day_val), 2),
+                },
+                tables={
+                    "forecast_summary": forecast_table,
+                    "recent_history": history_sample,
+                    "day_of_week_seasonality": dow_table,
+                },
+                charts_data={
+                    "historical_dates": [d.strftime("%Y-%m-%d") for d in daily_ts["date"]],
+                    "historical_actuals": [float(v) for v in daily_ts["actual"]],
+                    "historical_fitted": [float(v) for v in in_sample_preds],
+                    "forecast_dates": [d.strftime("%Y-%m-%d") for d in future_dates],
+                    "forecast_values": [float(v) for v in future_preds],
+                    "lower_bound": [float(v) for v in lower_bound],
+                    "upper_bound": [float(v) for v in upper_bound],
+                },
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
 
         return None
