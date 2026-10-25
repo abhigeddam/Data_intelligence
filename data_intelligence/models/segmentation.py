@@ -193,5 +193,46 @@ class CustomerSegmentationEngine:
 
             return ModelResult(
                 model_type=ModelType.CUSTOMER_SEGMENTATION,
-
-        return None
+                model_name="RFM & K-Means Behavioral Clustering",
+                status="success",
+                metrics={
+                    "total_customers": total_cust,
+                    "optimal_clusters": best_k,
+                    "silhouette_score": round(float(best_score), 3),
+                    "total_analyzed_revenue": round(float(total_revenue), 2),
+                },
+                insights=insights,
+                quantitative_findings={
+                    "top_segment_name": str(top_rev_segment["persona"]),
+                    "top_segment_rev_share": round(float(top_rev_segment["revenue_pct"]), 1),
+                    "top_segment_count": int(top_rev_segment["customer_count"]),
+                },
+                tables={
+                    "segment_summary": summary_table,
+                    "customer_samples": sample_customers,
+                },
+                charts_data={
+                    "segments": [s["persona"] for s in summary_table],
+                    "revenue_shares": [s["revenue_share_pct"] for s in summary_table],
+                    "customer_shares": [s["customer_pct"] for s in summary_table],
+                    "recency_vs_monetary": [
+                        {
+                            "recency": float(r["recency"]),
+                            "monetary": float(r["monetary"]),
+                            "frequency": float(r["frequency"]),
+                            "persona": str(r["persona"]),
+                        }
+                        for _, r in rfm.sample(n=min(300, len(rfm)), random_state=42).iterrows()
+                    ],
+                },
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+        except Exception as e:
+            return ModelResult(
+                model_type=ModelType.CUSTOMER_SEGMENTATION,
+                model_name="RFM & K-Means Behavioral Clustering",
+                status="error",
+                error_message=str(e),
+                insights=[f"Customer segmentation encountered an error: {str(e)}"],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
