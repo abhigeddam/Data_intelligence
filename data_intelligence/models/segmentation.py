@@ -93,5 +93,60 @@ class CustomerSegmentationEngine:
             # Prevent zero or negative values in log transform
             rfm["recency"] = np.maximum(rfm["recency"], 1)
             rfm["frequency"] = np.maximum(rfm["frequency"], 1)
+            rfm["monetary"] = np.maximum(rfm["monetary"], 0.01)
+
+            # Log transform to manage skewness
+            log_rfm = np.log1p(rfm[["recency", "frequency", "monetary"]])
+            scaler = StandardScaler()
+            scaled_rfm = scaler.fit_transform(log_rfm)
+
+            # Select optimal k based on silhouette score
+            k_candidates = [3, 4, 5]
+            best_k = 4
+            best_score = -1.0
+            best_labels = None
+
+            for k in k_candidates:
+                if len(rfm) <= k:
+                    continue
+                kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+                labels = kmeans.fit_predict(scaled_rfm)
+                score = silhouette_score(scaled_rfm, labels)
+                if score > best_score:
+                    best_score = score
+                    best_k = k
+                    best_labels = labels
+
+            if best_labels is None:
+                kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+                best_labels = kmeans.fit_predict(scaled_rfm)
+                best_k = 3
+                best_score = 0.35
+
+            rfm["cluster"] = best_labels
+
+            # Cluster aggregation to assign human persona tags
+            cluster_stats = rfm.groupby("cluster").agg(
+                customer_count=(c_col, "count"),
+                avg_recency=("recency", "mean"),
+                avg_frequency=("frequency", "mean"),
+                avg_monetary=("monetary", "mean"),
+                total_monetary=("monetary", "sum"),
+            ).reset_index()
+
+            total_revenue = rfm["monetary"].sum()
+            total_cust = len(rfm)
+            cluster_stats["revenue_pct"] = (cluster_stats["total_monetary"] / max(0.01, total_revenue)) * 100
+            cluster_stats["customer_pct"] = (cluster_stats["customer_count"] / total_cust) * 100
+
+            # Rank clusters by monetary and recency to label personas
+            def assign_persona(row: pd.Series) -> str:
+                # Rank logic
+                if row["avg_monetary"] >= cluster_stats["avg_monetary"].quantile(0.70):
+                    if row["avg_recency"] <= cluster_stats["avg_recency"].median():
+                        return "Champions & VIPs"
+                    return "At-Risk High-Value"
+                elif row["avg_frequency"] >= cluster_stats["avg_frequency"].median():
+                    return "Loyal Repeat Customers"
 
         return None
