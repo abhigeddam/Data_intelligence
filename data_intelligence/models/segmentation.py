@@ -148,5 +148,50 @@ class CustomerSegmentationEngine:
                     return "At-Risk High-Value"
                 elif row["avg_frequency"] >= cluster_stats["avg_frequency"].median():
                     return "Loyal Repeat Customers"
+                elif row["avg_recency"] <= cluster_stats["avg_recency"].quantile(0.40):
+                    return "Promising Newcomers"
+                else:
+                    return "Hibernating / Dormant"
+
+            cluster_stats["persona"] = cluster_stats.apply(assign_persona, axis=1)
+
+            # Map persona back to individual customer table
+            persona_map = dict(zip(cluster_stats["cluster"], cluster_stats["persona"]))
+            rfm["persona"] = rfm["cluster"].map(persona_map)
+
+            # Find top revenue segment
+            top_rev_segment = cluster_stats.sort_values(by="revenue_pct", ascending=False).iloc[0]
+            at_risk_segment = cluster_stats[cluster_stats["persona"] == "At-Risk High-Value"]
+
+            insights = [
+                f"Identified {best_k} distinct behavioral segments with a Silhouette validation score of {best_score:.2f}.",
+                f"Revenue Concentration: The '{top_rev_segment['persona']}' segment represents {top_rev_segment['customer_pct']:.1f}% of accounts but drives {top_rev_segment['revenue_pct']:.1f}% of total revenue (${top_rev_segment['total_monetary']:,.2f}).",
+            ]
+
+            if not at_risk_segment.empty:
+                ar = at_risk_segment.iloc[0]
+                insights.append(
+                    f"Retention Alert: {int(ar['customer_count'])} accounts in '{ar['persona']}' have lapsed (avg recency {ar['avg_recency']:.0f} days) representing ${ar['total_monetary']:,.2f} in historical revenue."
+                )
+
+            # Construct clean output tables
+            summary_table = []
+            for _, row in cluster_stats.iterrows():
+                summary_table.append({
+                    "cluster_id": int(row["cluster"]),
+                    "persona": str(row["persona"]),
+                    "customer_count": int(row["customer_count"]),
+                    "customer_pct": round(float(row["customer_pct"]), 1),
+                    "avg_recency_days": round(float(row["avg_recency"]), 1),
+                    "avg_orders_count": round(float(row["avg_frequency"]), 1),
+                    "avg_spend_usd": round(float(row["avg_monetary"]), 2),
+                    "total_revenue_usd": round(float(row["total_monetary"]), 2),
+                    "revenue_share_pct": round(float(row["revenue_pct"]), 1),
+                })
+
+            sample_customers = rfm[[c_col, "recency", "frequency", "monetary", "persona"]].head(50).to_dict(orient="records")
+
+            return ModelResult(
+                model_type=ModelType.CUSTOMER_SEGMENTATION,
 
         return None
