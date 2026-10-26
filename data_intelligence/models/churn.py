@@ -203,5 +203,30 @@ class ChurnPredictionEngine:
                 model_name="Supervised Churn Risk Classifier",
                 status="error",
                 error_message=str(e),
+                insights=[f"Churn prediction failed: {str(e)}"],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
 
+    def _detect_churn_column(self, df: pd.DataFrame) -> Optional[str]:
+        for c in df.columns:
+            c_low = c.lower()
+            if any(k == c_low or k in c_low for k in self.CHURN_KEYWORDS):
+                if df[c].nunique() == 2:
+                    return c
         return None
+
+    def _create_implicit_churn(self, df: pd.DataFrame, c_col: str, dt_col: str) -> Tuple[str, pd.DataFrame]:
+        """
+        Derive implicit churn target from purchase inactivity threshold.
+        """
+        df_sorted = df.sort_values(by=dt_col)
+        df_sorted[dt_col] = pd.to_datetime(df_sorted[dt_col])
+        max_dt = df_sorted[dt_col].max()
+        last_seen = df_sorted.groupby(c_col)[dt_col].max().reset_index()
+        last_seen["days_since_last"] = (max_dt - last_seen[dt_col]).dt.days
+
+        threshold = max(60, int(last_seen["days_since_last"].quantile(0.75)))
+        last_seen["is_churn"] = (last_seen["days_since_last"] >= threshold).astype(int)
+
+        merged = pd.merge(df, last_seen[[c_col, "is_churn"]], on=c_col, how="left")
+        return "is_churn", merged
