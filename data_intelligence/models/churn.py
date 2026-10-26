@@ -159,4 +159,49 @@ class ChurnPredictionEngine:
                 f"Top churn leading indicator: '{top_factors[0]['feature']}' (explaining {top_factors[0]['importance_pct']}% of predictive variance), followed by '{top_factors[1]['feature'] if len(top_factors) > 1 else 'N/A'}'.",
             ]
 
+            if total_at_risk_dollars > 0:
+                insights.append(
+                    f"Financial Risk Exposure: {len(high_risk_df)} active accounts currently exhibit high churn signals (≥65% probability), representing ${total_at_risk_dollars:,.2f} in revenue at immediate risk."
+                )
+
+            return ModelResult(
+                model_type=ModelType.CHURN_PREDICTION,
+                model_name="Supervised Churn Risk Classifier (Random Forest)",
+                status="success",
+                metrics={
+                    "roc_auc": round(roc_auc, 3),
+                    "precision": round(precision, 3),
+                    "recall": round(recall, 3),
+                    "f1_score": round(f1, 3),
+                    "baseline_churn_rate_pct": round(churn_rate * 100, 1),
+                },
+                insights=insights,
+                quantitative_findings={
+                    "high_risk_accounts_count": len(high_risk_df),
+                    "revenue_at_risk_usd": round(total_at_risk_dollars, 2),
+                    "primary_churn_driver": top_factors[0]["feature"],
+                },
+                tables={
+                    "top_churn_drivers": top_factors,
+                    "high_risk_watchlist": watchlist,
+                },
+                charts_data={
+                    "driver_names": [f["feature"] for f in top_factors],
+                    "driver_importances": [f["importance_pct"] for f in top_factors],
+                    "risk_distribution": [
+                        {"range": "0-20% (Safe)", "count": int((full_probs < 0.2).sum())},
+                        {"range": "20-50% (Moderate)", "count": int(((full_probs >= 0.2) & (full_probs < 0.5)).sum())},
+                        {"range": "50-70% (Elevated)", "count": int(((full_probs >= 0.5) & (full_probs < 0.7)).sum())},
+                        {"range": "70-100% (Critical)", "count": int((full_probs >= 0.7).sum())},
+                    ],
+                },
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+        except Exception as e:
+            return ModelResult(
+                model_type=ModelType.CHURN_PREDICTION,
+                model_name="Supervised Churn Risk Classifier",
+                status="error",
+                error_message=str(e),
+
         return None
