@@ -143,5 +143,35 @@ class PriceElasticityEngine:
                 charts_data={
                     "category_names": [c["category"] for c in category_results],
                     "elasticities": [c["elasticity_coefficient"] for c in category_results],
+                    "scatter_p_vs_q": [
+                        {"price": float(p), "quantity": float(q)}
+                        for p, q in zip(work_df[p_col].sample(min(200, len(work_df)), random_state=42),
+                                       work_df[q_col].sample(min(200, len(work_df)), random_state=42))
+                    ],
+                },
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+        except Exception as e:
+            return ModelResult(
+                model_type=ModelType.PRICE_ELASTICITY,
+                model_name="Econometric Price Elasticity Simulator",
+                status="error",
+                error_message=str(e),
+                insights=[f"Price elasticity analysis failed: {str(e)}"],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+
+    def _calculate_elasticity(self, price: pd.Series, quantity: pd.Series) -> Tuple[float, float]:
+        """
+        Fit log-log ordinary least squares regression: ln(Q) = a + e * ln(P)
+        """
+        log_p = np.log(price.values).reshape(-1, 1)
+        log_q = np.log(quantity.values)
+
+        reg = LinearRegression()
+        reg.fit(log_p, log_q)
+        elasticity = float(reg.coef_[0])
+        r2 = float(reg.score(log_p, log_q))
+        return elasticity, r2
 
         return None
