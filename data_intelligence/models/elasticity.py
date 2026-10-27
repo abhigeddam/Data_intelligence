@@ -174,4 +174,14 @@ class PriceElasticityEngine:
         r2 = float(reg.score(log_p, log_q))
         return elasticity, r2
 
+    def _detect_price_column(self, df: pd.DataFrame) -> Optional[str]:
+        for c in df.columns:
+            if any(k == c.lower() or k in c.lower() for k in ["unit_price", "price", "avg_check", "rate", "cost_per_unit"]):
+                return c
+        return None
+
+    def _detect_quantity_column(self, df: pd.DataFrame) -> Optional[str]:
+        for c in df.columns:
+            if any(k == c.lower() or k in c.lower() for k in ["quantity", "qty", "covers_total", "volume", "units", "covers"]):
+                return c
         return None
