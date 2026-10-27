@@ -88,5 +88,60 @@ class PriceElasticityEngine:
                             rec = "Pricing is balanced with current market demand."
 
                         category_results.append({
+                            "category": str(cat),
+                            "elasticity_coefficient": round(e_val, 3),
+                            "demand_classification": diagnosis,
+                            "r2_fit": round(r2_val, 2),
+                            "avg_price_usd": round(avg_p, 2),
+                            "total_units_sold": int(total_q),
+                            "recommendation": rec,
+                        })
+
+            # Formulate strategic narrative
+            if overall_elasticity > -0.9:
+                portfolio_status = "Inelastic (Pricing Power Available)"
+                portfolio_rec = "Your customer base exhibits low price sensitivity. A modest 3%–5% price increase across core offerings will flow directly to net profit with negligible drop in transaction volume."
+            elif overall_elasticity < -1.3:
+                portfolio_status = "Elastic (High Price Sensitivity)"
+                portfolio_rec = "Demand is sensitive to price hikes. Prioritize margin expansion through cross-selling, premium tiering, and supplier cost reduction rather than across-the-board price raises."
+            else:
+                portfolio_status = "Unitary Elastic (Fair Market Balance)"
+                portfolio_rec = "Demand shifts proportionately with price adjustments. Target price adjustments dynamically by customer segment."
+
+            insights = [
+                f"Overall Portfolio Elasticity: {overall_elasticity:.2f} — classified as '{portfolio_status}'.",
+                portfolio_rec,
+            ]
+
+            if category_results:
+                inelastic_cats = [c["category"] for c in category_results if "Inelastic" in c["demand_classification"]]
+                elastic_cats = [c["category"] for c in category_results if "Highly Elastic" in c["demand_classification"]]
+
+                if inelastic_cats:
+                    insights.append(f"Immediate Margin Opportunity: {', '.join(inelastic_cats)} have high pricing resilience and can absorb price increases.")
+                if elastic_cats:
+                    insights.append(f"Caution Zone: {', '.join(elastic_cats)} show high elasticity; avoid price increases without value bundling.")
+
+            return ModelResult(
+                model_type=ModelType.PRICE_ELASTICITY,
+                model_name="Econometric Price Elasticity Simulator",
+                status="success",
+                metrics={
+                    "overall_elasticity": round(overall_elasticity, 3),
+                    "model_r2_fit": round(r2_overall, 3),
+                    "demand_elasticity_type": portfolio_status,
+                },
+                insights=insights,
+                quantitative_findings={
+                    "elasticity_coefficient": round(overall_elasticity, 3),
+                    "classification": portfolio_status,
+                    "analyzed_categories_count": len(category_results),
+                },
+                tables={
+                    "category_elasticities": category_results,
+                },
+                charts_data={
+                    "category_names": [c["category"] for c in category_results],
+                    "elasticities": [c["elasticity_coefficient"] for c in category_results],
 
         return None
