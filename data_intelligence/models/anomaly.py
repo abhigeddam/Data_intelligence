@@ -43,5 +43,55 @@ class AnomalyDetectionEngine:
             return ModelResult(
                 model_type=ModelType.ANOMALY_DETECTION,
                 model_name="Isolation Forest Anomaly Radar",
+                status="skipped",
+                insights=["Anomaly detection skipped: Insufficient numerical feature variance or records (< 25 rows)."],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+
+        try:
+            X = work_df[feature_cols].fillna(work_df[feature_cols].median())
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+
+            # Fit Isolation Forest
+            iso_forest = IsolationForest(
+                contamination=self.contamination,
+                random_state=42,
+                n_estimators=100,
+            )
+            preds = iso_forest.fit_predict(X_scaled)  # -1 for anomaly, 1 for normal
+            anomaly_scores = -iso_forest.decision_function(X_scaled)  # Higher is more anomalous
+
+            work_df["is_anomaly"] = (preds == -1).astype(int)
+            work_df["anomaly_score"] = np.round(anomaly_scores, 3)
+
+            n_anomalies = int(work_df["is_anomaly"].sum())
+            anomaly_rate_pct = round((n_anomalies / len(work_df)) * 100, 2)
+
+            # Extract top anomalous records
+            anomalies_df = work_df[work_df["is_anomaly"] == 1].sort_values(
+                by="anomaly_score", ascending=False
+            )
+
+            # Build detailed alert entries
+            date_col = self.profile.detected_datetime_col
+            id_col = self.profile.detected_customer_id_col or "order_id"
+
+            alert_items = []
+            for _, row in anomalies_df.head(20).iterrows():
+                # Identify which features deviated most
+                deviations = []
+                for col in feature_cols[:4]:
+                    col_mean = work_df[col].mean()
+                    col_std = work_df[col].std() or 1.0
+                    val = row[col]
+                    z_val = (val - col_mean) / col_std
+                    if abs(z_val) > 2.0:
+                        deviations.append(f"{col}: {val} ({'+' if z_val > 0 else ''}{z_val:.1f}σ vs mean)")
+
+                identifier_str = str(row[id_col]) if id_col in row else f"Row {row.name}"
+                date_str = str(row[date_col]) if date_col and date_col in row else "N/A"
+
+                severity = "Critical" if row["anomaly_score"] > 0.15 else "High"
 
         return None
