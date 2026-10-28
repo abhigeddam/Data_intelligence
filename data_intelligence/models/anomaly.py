@@ -93,5 +93,50 @@ class AnomalyDetectionEngine:
                 date_str = str(row[date_col]) if date_col and date_col in row else "N/A"
 
                 severity = "Critical" if row["anomaly_score"] > 0.15 else "High"
+                explanation = "; ".join(deviations) if deviations else "Unusual multivariate combination"
+
+                alert_items.append({
+                    "identifier": identifier_str,
+                    "date": date_str,
+                    "severity": severity,
+                    "anomaly_score": float(row["anomaly_score"]),
+                    "trigger_reasons": explanation,
+                })
+
+            insights = [
+                f"Scanned {len(work_df):,} operational records: Flagged {n_anomalies} anomalous events ({anomaly_rate_pct}% outlier rate).",
+                f"Model calibrated with an Isolation Forest ensemble (contamination factor: {self.contamination * 100:.1f}%).",
+            ]
+
+            if n_anomalies > 0:
+                top_alert = alert_items[0]
+                insights.append(
+                    f"Highest Severity Outlier: Incident on {top_alert['date']} ({top_alert['identifier']}) triggered by: {top_alert['trigger_reasons']}."
+                )
+
+            return ModelResult(
+                model_type=ModelType.ANOMALY_DETECTION,
+                model_name="Isolation Forest Anomaly Radar",
+                status="success",
+                metrics={
+                    "total_records_scanned": len(work_df),
+                    "anomalies_detected": n_anomalies,
+                    "anomaly_rate_pct": anomaly_rate_pct,
+                    "features_evaluated": len(feature_cols),
+                },
+                insights=insights,
+                quantitative_findings={
+                    "total_anomalies": n_anomalies,
+                    "anomaly_rate": anomaly_rate_pct,
+                    "most_severe_score": float(anomalies_df["anomaly_score"].max()) if not anomalies_df.empty else 0.0,
+                },
+                tables={
+                    "anomaly_alerts": alert_items,
+                },
+                charts_data={
+                    "anomaly_counts": [
+                        {"status": "Normal", "count": len(work_df) - n_anomalies},
+                        {"status": "Anomalies", "count": n_anomalies},
+                    ],
 
         return None
