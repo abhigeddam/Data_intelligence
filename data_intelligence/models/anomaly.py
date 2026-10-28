@@ -138,5 +138,23 @@ class AnomalyDetectionEngine:
                         {"status": "Normal", "count": len(work_df) - n_anomalies},
                         {"status": "Anomalies", "count": n_anomalies},
                     ],
-
-        return None
+                    "timeline_anomalies": [
+                        {
+                            "date": str(r[date_col]) if date_col and date_col in r else str(r.name),
+                            "score": float(r["anomaly_score"]),
+                            "is_anomaly": int(r["is_anomaly"]),
+                        }
+                        for _, r in work_df.tail(120).iterrows()
+                    ],
+                },
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
+        except Exception as e:
+            return ModelResult(
+                model_type=ModelType.ANOMALY_DETECTION,
+                model_name="Isolation Forest Anomaly Radar",
+                status="error",
+                error_message=str(e),
+                insights=[f"Anomaly detection failed: {str(e)}"],
+                execution_time_seconds=round(time.time() - start_time, 2),
+            )
