@@ -28,3 +28,19 @@ class BaseAgent(ABC):
         Execute core cognitive task on given workflow context.
         """
         pass
+
+    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Lifecycle wrapper with timing, safety handling, and structured logging.
+        """
+        self.logger.info(f"Agent [{self.name}] starting task: {self.role}")
+        t0 = time.time()
+        try:
+            result = self.process(context)
+            self.last_execution_duration = round(time.time() - t0, 3)
+            self.logger.info(f"Agent [{self.name}] completed in {self.last_execution_duration}s")
+            return result
+        except Exception as e:
+            self.last_execution_duration = round(time.time() - t0, 3)
+            self.logger.error(f"Agent [{self.name}] encountered error: {str(e)}")
+            raise e
