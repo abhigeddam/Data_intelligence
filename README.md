@@ -12,3 +12,6 @@ Autonomous SMB Data Intelligence & Analytics Platform.
 - HypothesisAgent
 - SpecialistAgent
 - ExecutiveAgent
+
+### Domain Specialization
+Supports retail, SaaS, restaurant, and general SMB data schemas.
