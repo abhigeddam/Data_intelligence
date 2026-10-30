@@ -33,5 +33,37 @@ class ModelEnsembleSpecialistAgent(BaseAgent):
         if cleaned_df is None or profile is None:
             raise ValueError("Cleaned data or profile missing in context.")
 
+        model_results: Dict[str, ModelResult] = {}
 
-        return {}
+        # 1. Time Series Forecaster
+        if profile.detected_datetime_col and profile.detected_target_col:
+            forecaster = TimeSeriesForecaster(profile, horizon_days=30)
+            res_fc = forecaster.run(cleaned_df)
+            model_results[ModelType.TIME_SERIES.value] = res_fc
+
+        # 2. Customer Segmentation Engine
+        if profile.detected_customer_id_col:
+            segmenter = CustomerSegmentationEngine(profile)
+            res_seg = segmenter.run(cleaned_df)
+            model_results[ModelType.CUSTOMER_SEGMENTATION.value] = res_seg
+
+        # 3. Churn Prediction Engine
+        churner = ChurnPredictionEngine(profile)
+        res_churn = churner.run(cleaned_df)
+        if res_churn.status != "skipped":
+            model_results[ModelType.CHURN_PREDICTION.value] = res_churn
+
+        # 4. Price Elasticity Engine
+        elasticity_eng = PriceElasticityEngine(profile)
+        res_elast = elasticity_eng.run(cleaned_df)
+        if res_elast.status != "skipped":
+            model_results[ModelType.PRICE_ELASTICITY.value] = res_elast
+
+        # 5. Anomaly Radar Engine
+        anomaly_eng = AnomalyDetectionEngine(profile)
+        res_anom = anomaly_eng.run(cleaned_df)
+        if res_anom.status != "skipped":
+            model_results[ModelType.ANOMALY_DETECTION.value] = res_anom
+
+        context["model_results"] = model_results
+        return context
