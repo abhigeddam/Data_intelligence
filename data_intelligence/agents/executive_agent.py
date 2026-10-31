@@ -158,5 +158,75 @@ class ExecutiveNarrativeAgent(BaseAgent):
                 playbook_30.append(
                     ActionItem(
                         time_horizon=TimeHorizon.DAYS_30,
+                        title="Execute 4% to 6% Selective Price Adjustment",
+                        department="Finance",
+                        description="Increase list prices across identified inelastic categories. Because customers are insensitive to price changes here, margin flows directly to profit.",
+                        estimated_impact_dollars=est_pricing_gain,
+                        difficulty="Low",
+                        expected_outcome="Pure EBITDA expansion with near-zero attrition in units sold.",
+                    )
+                )
+            elif "Elastic" in status_desc:
+                operational_risks.append(
+                    f"Price Sensitivity: Demand is elastic (Ed = {coef:.2f}). Direct price hikes will cause customer defection without value bundling."
+                )
+                playbook_30.append(
+                    ActionItem(
+                        time_horizon=TimeHorizon.DAYS_30,
+                        title="Implement Strategic Product Bundling Instead of Direct Hikes",
+                        department="Marketing",
+                        description="Bundle high-margin accessories with core offerings to increase average basket size without triggering unit price sensitivity.",
+                        estimated_impact_dollars=14000.0,
+                        difficulty="Medium",
+                        expected_outcome="Lift Average Order Value (AOV) by 8-12% while maintaining price competitiveness.",
+                    )
+                )
 
-        return None
+        # 5. Evaluate Anomaly Radar
+        anom_res = model_results.get(ModelType.ANOMALY_DETECTION.value)
+        if anom_res and anom_res.status == "success":
+            findings = anom_res.quantitative_findings
+            total_anom = findings.get("total_anomalies", 0)
+            if total_anom > 0:
+                operational_risks.append(
+                    f"Operational Outliers: Flagged {total_anom} anomalous transactions/days reflecting cost surges or margin anomalies."
+                )
+                playbook_30.append(
+                    ActionItem(
+                        time_horizon=TimeHorizon.DAYS_30,
+                        title="Audit Flagged High-Severity Operational Anomalies",
+                        department="Operations",
+                        description="Inspect the top 10 outlier events flagged in OmniInsight Anomaly Radar for payroll discrepancies, unauthorized discounts, or inventory shrinkage.",
+                        estimated_impact_dollars=6500.0,
+                        difficulty="Low",
+                        expected_outcome="Plug recurring operational margin leakage and standardize checkout controls.",
+                    )
+                )
+
+        # Format high level narrative
+        b_type_str = profile.business_type.value.upper()
+        health_overview = (
+            f"OmniInsight multi-agent audit completed for {b_type_str} business profile across {profile.shape[0]:,} records. "
+            f"The business demonstrates a data hygiene rating of {profile.data_quality.overall_score:.1f}/100. "
+            f"Autonomous model synthesis identifies strong potential to unlock an estimated ${quantified_roi:,.2f} in annual value "
+            f"through targeted retention, pricing calibration, and operational streamlining."
+        )
+
+        verdict = (
+            f"Conclusion: Prioritize 7-day retention triage for vulnerable high-value accounts, "
+            f"followed by month-one margin expansion via calibrated pricing and operational capacity alignment."
+        )
+
+        executive_summary = ExecutiveSummary(
+            business_health_overview=health_overview,
+            key_growth_drivers=growth_drivers or ["Steady historical transaction baseline."],
+            top_operational_risks=operational_risks or ["No severe systemic anomalies detected."],
+            quantified_roi_opportunity=round(quantified_roi, 2),
+            playbook_7_days=playbook_7,
+            playbook_30_days=playbook_30,
+            playbook_90_days=playbook_90,
+            concluding_verdict=verdict,
+        )
+
+        context["executive_summary"] = executive_summary
+        return context
