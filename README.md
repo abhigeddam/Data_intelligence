@@ -15,3 +15,6 @@ Autonomous SMB Data Intelligence & Analytics Platform.
 
 ### Domain Specialization
 Supports retail, SaaS, restaurant, and general SMB data schemas.
+
+## Reporting Engine
+Generates executive briefs in Markdown and JSON formats.
