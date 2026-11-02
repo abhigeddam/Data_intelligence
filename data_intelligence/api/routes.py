@@ -73,3 +73,77 @@ def list_samples() -> List[SampleInfo]:
                 )
             )
     return samples
+
+
+@router.post("/audit/file", response_model=AuditReport)
+async def audit_uploaded_file(
+    file: UploadFile = File(...),
+    business_type: Optional[BusinessType] = Form(None),
+) -> AuditReport:
+    """Upload CSV or Excel file and trigger autonomous multi-agent audit."""
+    content = await file.read()
+    filename = file.filename or "uploaded_data.csv"
+
+    try:
+        if filename.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(content))
+        elif filename.endswith((".xlsx", ".xls")):
+            df = pd.read_excel(io.BytesIO(content))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported format. Please upload a .csv or .xlsx file.",
+            )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="Uploaded dataset is empty.")
+
+    report = orchestrator.run_from_dataframe(
+        df=df,
+        dataset_name=filename.rsplit(".", 1)[0],
+        business_type=business_type,
+    )
+    return report
+
+
+@router.post("/audit/sample/{sample_id}", response_model=AuditReport)
+def audit_sample_dataset(sample_id: str) -> AuditReport:
+    """Run full multi-agent audit on a preloaded SMB benchmark dataset."""
+    sample_key = sample_id.lower()
+    if sample_key not in SAMPLE_MAP:
+        raise HTTPException(status_code=404, detail=f"Sample '{sample_id}' not found. Available: {list(SAMPLE_MAP.keys())}")
+
+    meta = SAMPLE_MAP[sample_key]
+    file_path = settings.samples_dir / meta["file"]
+
+    if not file_path.exists():
+        from data_intelligence.data.generator import save_sample_datasets
+        save_sample_datasets()
+
+    return orchestrator.run_from_file(
+        file_path=file_path,
+        business_type=BusinessType(meta["type"]),
+    )
+
+
+@router.post("/query", response_model=QueryResponse)
+def query_data(req: QueryRequest) -> QueryResponse:
+    """Answer natural language business question on data."""
+    sample_key = (req.sample_dataset or "retail").lower()
+    if sample_key not in SAMPLE_MAP:
+        sample_key = "retail"
+
+    meta = SAMPLE_MAP[sample_key]
+    file_path = settings.samples_dir / meta["file"]
+    if not file_path.exists():
+        from data_intelligence.data.generator import save_sample_datasets
+        save_sample_datasets()
+
+    df = pd.read_csv(file_path)
+    profiler = DataProfiler(business_type=BusinessType(meta["type"]))
+    profile = profiler.profile(df)
+
+    res = query_agent.answer(question=req.question, df=df, profile=profile)
+    return QueryResponse(**res)
