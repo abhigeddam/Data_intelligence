@@ -238,3 +238,88 @@ with tab_exec:
             for item in ex.playbook_7_days:
                 with st.expander(f"**[{item.department}]** {item.title} — Impact: ${item.estimated_impact_dollars:,.2f}" if item.estimated_impact_dollars else f"**[{item.department}]** {item.title}", expanded=True):
                     st.write(item.description)
+                    st.caption(f"**Expected Outcome:** {item.expected_outcome} | **Difficulty:** {item.difficulty}")
+        else:
+            st.write("No immediate emergency triage required.")
+
+    with p30:
+        if ex.playbook_30_days:
+            for item in ex.playbook_30_days:
+                with st.expander(f"**[{item.department}]** {item.title} — Impact: ${item.estimated_impact_dollars:,.2f}" if item.estimated_impact_dollars else f"**[{item.department}]** {item.title}", expanded=True):
+                    st.write(item.description)
+                    st.caption(f"**Expected Outcome:** {item.expected_outcome} | **Difficulty:** {item.difficulty}")
+        else:
+            st.write("No 30-day initiatives scheduled.")
+
+    with p90:
+        if ex.playbook_90_days:
+            for item in ex.playbook_90_days:
+                with st.expander(f"**[{item.department}]** {item.title} — Impact: ${item.estimated_impact_dollars:,.2f}" if item.estimated_impact_dollars else f"**[{item.department}]** {item.title}", expanded=True):
+                    st.write(item.description)
+                    st.caption(f"**Expected Outcome:** {item.expected_outcome} | **Difficulty:** {item.difficulty}")
+        else:
+            st.write("No 90-day initiatives scheduled.")
+
+    st.markdown("---")
+    # Export Report
+    md_content = generate_markdown_report(report)
+    st.download_button(
+        label="📄 Download Complete Executive Brief (Markdown)",
+        data=md_content,
+        file_name=f"OmniInsight_Report_{report.audit_id}.md",
+        mime="text/markdown",
+        use_container_width=True,
+    )
+
+# ----------------- TAB 2: DEMAND FORECAST -----------------
+with tab_fc:
+    if ModelType.TIME_SERIES.value in models and models[ModelType.TIME_SERIES.value].status == "success":
+        fc = models[ModelType.TIME_SERIES.value]
+        st.subheader(f"📈 {fc.model_name}")
+
+        for ins in fc.insights:
+            st.success(f"💡 {ins}")
+
+        col_fc1, col_fc2 = st.columns([3, 1])
+        with col_fc1:
+            fig_fc = plot_time_series_forecast(fc.charts_data, target_name=p.detected_target_col or "Revenue")
+            st.plotly_chart(fig_fc, use_container_width=True)
+
+        with col_fc2:
+            st.markdown("#### Forecast Metrics")
+            st.metric("Projected Total", f"${fc.quantitative_findings.get('projected_total', 0):,.2f}")
+            st.metric("Expected Growth", f"{fc.quantitative_findings.get('growth_rate_pct', 0)}%")
+            st.metric("Model MAPE", f"{fc.metrics.get('MAPE_pct')}%")
+            st.metric("Model R² Fit", f"{fc.metrics.get('R2_score')}")
+
+        if "day_of_week_seasonality" in fc.tables:
+            st.markdown("---")
+            fig_dow = plot_seasonality_dow(fc.tables["day_of_week_seasonality"])
+            st.plotly_chart(fig_dow, use_container_width=True)
+    else:
+        st.warning("Time series forecasting was not applicable or lacked sufficient history for this dataset.")
+
+# ----------------- TAB 3: CUSTOMER RFM -----------------
+with tab_rfm:
+    if ModelType.CUSTOMER_SEGMENTATION.value in models and models[ModelType.CUSTOMER_SEGMENTATION.value].status == "success":
+        seg = models[ModelType.CUSTOMER_SEGMENTATION.value]
+        st.subheader(f"👥 {seg.model_name}")
+
+        for ins in seg.insights:
+            st.info(f"💡 {ins}")
+
+        st.plotly_chart(plot_customer_segments(seg.charts_data), use_container_width=True)
+
+        if "segment_summary" in seg.tables:
+            st.markdown("#### Customer Persona Breakdown")
+            df_seg = pd.DataFrame(seg.tables["segment_summary"])
+            st.dataframe(df_seg, use_container_width=True)
+    else:
+        st.warning("Customer segmentation requires a customer identifier attribute.")
+
+# ----------------- TAB 4: CHURN RADAR -----------------
+with tab_churn:
+    if ModelType.CHURN_PREDICTION.value in models and models[ModelType.CHURN_PREDICTION.value].status == "success":
+        ch = models[ModelType.CHURN_PREDICTION.value]
+        st.subheader(f"⚠️ {ch.model_name}")
+
