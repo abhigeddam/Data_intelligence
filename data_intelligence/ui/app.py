@@ -148,3 +148,93 @@ elif uploaded_file is not None:
         active_name = uploaded_file.name.rsplit(".", 1)[0]
     except Exception as e:
         st.error(f"Failed to read uploaded file: {str(e)}")
+
+# Header
+st.markdown('<div class="main-header">⚡ OmniInsight: Autonomous SMB Data Intelligence</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="sub-header">Multi-agent AI platform orchestrating forecasting, customer RFM cohorts, churn risk radar, and econometric pricing models.</div>',
+    unsafe_allow_html=True,
+)
+
+if df_active is None:
+    st.info("👈 Select a sample benchmark dataset or upload your business data from the sidebar to begin.")
+    st.stop()
+
+# Auto-run or manually triggered
+if "current_report" not in st.session_state or run_btn:
+    with st.spinner("🤖 Autonomous AI Agent team analyzing dataset..."):
+        b_type_arg = None
+        if business_type_override != "Auto-Detect":
+            b_type_arg = BusinessType(business_type_override.lower())
+        else:
+            b_type_arg = inferred_type
+
+        report = orchestrator.run_from_dataframe(
+            df=df_active,
+            dataset_name=active_name,
+            business_type=b_type_arg,
+        )
+        st.session_state["current_report"] = report
+        st.session_state["active_df"] = df_active
+
+report = st.session_state["current_report"]
+df_active = st.session_state["active_df"]
+p = report.dataset_profile
+q = p.data_quality
+ex = report.executive_summary
+models = report.model_results
+
+# Dashboard Tabs
+tab_exec, tab_fc, tab_rfm, tab_churn, tab_price, tab_anom, tab_query = st.tabs([
+    "🏢 Executive Brief",
+    "📈 Demand Forecast",
+    "👥 Customer RFM",
+    "⚠️ Churn Radar",
+    "🏷️ Pricing Power",
+    "🛡️ Anomaly Radar",
+    "💬 Ask AI Data Assistant",
+])
+
+# ----------------- TAB 1: EXECUTIVE BRIEF -----------------
+with tab_exec:
+    # KPI Highlights
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Data Health Score", f"{q.overall_score:.1f} / 100", delta="Audit Grade A" if q.overall_score >= 85 else "Hygiene Warnings")
+    with col2:
+        st.metric("Total Records", f"{p.shape[0]:,}", delta=f"{p.shape[1]} attributes")
+    with col3:
+        roi = ex.quantified_roi_opportunity
+        st.metric("Quantified Opportunity", f"${roi:,.2f}" if roi > 0 else "Baseline Stable", delta="Annualized Value")
+    with col4:
+        st.metric("Domain Profile", report.business_type.value.upper(), delta="Autonomous Detection")
+
+    st.markdown("---")
+
+    # Overview Banner
+    st.subheader("Executive Strategic Assessment")
+    st.info(f"**AI Strategy Takeaway:** {ex.business_health_overview}")
+
+    # Growth vs Risks Columns
+    c_grow, c_risk = st.columns(2)
+    with c_grow:
+        st.markdown("### 🚀 Primary Growth Catalysts")
+        for g in ex.key_growth_drivers:
+            st.markdown(f"- **{g}**")
+
+    with c_risk:
+        st.markdown("### ⚠️ Key Operational & Retention Risks")
+        for r in ex.top_operational_risks:
+            st.markdown(f"- **{r}**")
+
+    st.markdown("---")
+
+    # Tactical Playbooks
+    st.subheader("🎯 Prioritized Action Playbook")
+
+    p7, p30, p90 = st.tabs(["🚨 7-Day Quick Wins", "📅 30-Day Operational Levers", "🎯 90-Day Strategic Initiatives"])
+    with p7:
+        if ex.playbook_7_days:
+            for item in ex.playbook_7_days:
+                with st.expander(f"**[{item.department}]** {item.title} — Impact: ${item.estimated_impact_dollars:,.2f}" if item.estimated_impact_dollars else f"**[{item.department}]** {item.title}", expanded=True):
+                    st.write(item.description)
