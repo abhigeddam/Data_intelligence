@@ -323,3 +323,58 @@ with tab_churn:
         ch = models[ModelType.CHURN_PREDICTION.value]
         st.subheader(f"⚠️ {ch.model_name}")
 
+        for ins in ch.insights:
+            st.warning(f"🚨 {ins}")
+
+        col_ch1, col_ch2 = st.columns([2, 1])
+        with col_ch1:
+            st.plotly_chart(plot_churn_drivers(ch.charts_data), use_container_width=True)
+        with col_ch2:
+            st.markdown("#### Churn Model Accuracy")
+            st.metric("ROC-AUC Score", ch.metrics.get("roc_auc"))
+            st.metric("Model Recall", f"{float(ch.metrics.get('recall', 0)) * 100:.1f}%")
+            st.metric("High-Risk Accounts", ch.quantitative_findings.get("high_risk_accounts_count", 0))
+
+        if "high_risk_watchlist" in ch.tables and ch.tables["high_risk_watchlist"]:
+            st.markdown("#### 🚨 High-Risk Customer Watchlist")
+            st.dataframe(pd.DataFrame(ch.tables["high_risk_watchlist"]), use_container_width=True)
+    else:
+        st.info("Churn prediction radar was skipped or not required for this dataset.")
+
+# ----------------- TAB 5: PRICING POWER -----------------
+with tab_price:
+    if ModelType.PRICE_ELASTICITY.value in models and models[ModelType.PRICE_ELASTICITY.value].status == "success":
+        el = models[ModelType.PRICE_ELASTICITY.value]
+        st.subheader(f"🏷️ {el.model_name}")
+
+        for ins in el.insights:
+            st.success(f"💡 {ins}")
+
+        col_p1, col_p2 = st.columns([2, 1])
+        with col_p1:
+            st.plotly_chart(plot_price_elasticity_scatter(el.charts_data), use_container_width=True)
+        with col_p2:
+            st.markdown("#### Portfolio Elasticity")
+            st.metric("Elasticity (Ed)", el.metrics.get("overall_elasticity"))
+            st.metric("Pricing Status", el.metrics.get("demand_elasticity_type", "").split("(")[0])
+
+        if "category_elasticities" in el.tables and el.tables["category_elasticities"]:
+            st.markdown("#### Category-by-Category Pricing Strategy")
+            st.dataframe(pd.DataFrame(el.tables["category_elasticities"]), use_container_width=True)
+    else:
+        st.info("Pricing elasticity requires unit price and quantity attributes.")
+
+# ----------------- TAB 6: ANOMALY RADAR -----------------
+with tab_anom:
+    if ModelType.ANOMALY_DETECTION.value in models and models[ModelType.ANOMALY_DETECTION.value].status == "success":
+        an = models[ModelType.ANOMALY_DETECTION.value]
+        st.subheader(f"🛡️ {an.model_name}")
+
+        for ins in an.insights:
+            st.error(f"⚠️ {ins}")
+
+        if "anomaly_alerts" in an.tables and an.tables["anomaly_alerts"]:
+            st.markdown("#### Top Detected Operational Outliers")
+            st.dataframe(pd.DataFrame(an.tables["anomaly_alerts"]), use_container_width=True)
+    else:
+        st.info("Anomaly detection requires continuous numerical features.")
