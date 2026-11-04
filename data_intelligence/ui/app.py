@@ -378,3 +378,30 @@ with tab_anom:
             st.dataframe(pd.DataFrame(an.tables["anomaly_alerts"]), use_container_width=True)
     else:
         st.info("Anomaly detection requires continuous numerical features.")
+
+# ----------------- TAB 7: CONVERSATIONAL QUERY ASSISTANT -----------------
+with tab_query:
+    st.subheader("💬 Ask AI Data Assistant")
+    st.caption("Ask questions about your business data in plain English.")
+
+    # Quick prompt chips
+    st.markdown("**Quick Prompts:**")
+    qc1, qc2, qc3, qc4 = st.columns(4)
+    q_preset = None
+    if qc1.button("💰 Total Revenue"):
+        q_preset = "What is our total revenue?"
+    if qc2.button("👥 Top Customer"):
+        q_preset = "Who is our top customer?"
+    if qc3.button("📦 Sales by Category"):
+        q_preset = "Show sales by category"
+    if qc4.button("📅 Best Day of Week"):
+        q_preset = "Which day of week has highest sales?"
+
+    user_q = st.text_input("Enter your business question:", value=q_preset or "", placeholder="e.g. What is the average order value?")
+
+    if user_q:
+        with st.spinner("Analyzing data..."):
+            ans_payload = query_agent.answer(question=user_q, df=df_active, profile=p)
+            st.markdown(f"### Answer:\n{ans_payload['answer']}")
+            if ans_payload.get("table_data"):
+                st.dataframe(pd.DataFrame(ans_payload["table_data"]), use_container_width=True)
