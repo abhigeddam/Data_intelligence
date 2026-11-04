@@ -63,3 +63,103 @@ def plot_time_series_forecast(charts_data: Dict[str, Any], target_name: str = "M
             name="Projected Forecast",
             line=dict(color="#059669", width=2.5, dash="dash"),
             marker=dict(size=4),
+        ))
+
+    fig.update_layout(
+        title=f"Autonomous Demand Forecast: {target_name}",
+        xaxis_title="Timeline",
+        yaxis_title=f"{target_name} ($)",
+        template="plotly_white",
+        hovermode="x unified",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=50, b=20),
+    )
+    return fig
+
+
+def plot_seasonality_dow(dow_table: List[Dict[str, Any]]) -> go.Figure:
+    """
+    Day of week velocity bar chart.
+    """
+    df = pd.DataFrame(dow_table)
+    fig = px.bar(
+        df,
+        x="day_of_week",
+        y="average_value",
+        color="average_value",
+        color_continuous_scale="Blues",
+        labels={"day_of_week": "Day of Week", "average_value": "Avg Velocity ($)"},
+        title="Day-of-Week Seasonality Pattern",
+    )
+    fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), showlegend=False)
+    return fig
+
+
+def plot_customer_segments(charts_data: Dict[str, Any]) -> go.Figure:
+    """
+    Customer RFM Recency vs Monetary scatter plot colored by persona.
+    """
+    data = charts_data.get("recency_vs_monetary", [])
+    if not data:
+        return go.Figure()
+
+    df = pd.DataFrame(data)
+    fig = px.scatter(
+        df,
+        x="recency",
+        y="monetary",
+        color="persona",
+        size="frequency",
+        hover_data=["frequency"],
+        labels={"recency": "Days Since Last Transaction (Recency)", "monetary": "Cumulative Spend ($)"},
+        title="Customer Behavioral Segments (RFM Clustering)",
+        log_y=True,
+    )
+    fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20))
+    return fig
+
+
+def plot_churn_drivers(charts_data: Dict[str, Any]) -> go.Figure:
+    """
+    Feature importance bar chart for churn predictors.
+    """
+    names = charts_data.get("driver_names", [])
+    imps = charts_data.get("driver_importances", [])
+    if not names:
+        return go.Figure()
+
+    df = pd.DataFrame({"Feature": names, "Importance": imps}).sort_values(by="Importance", ascending=True)
+    fig = px.bar(
+        df,
+        x="Importance",
+        y="Feature",
+        orientation="h",
+        labels={"Importance": "Relative Impact (%)", "Feature": "Behavioral Factor"},
+        title="Top Churn Leading Indicators (Predictive Importance)",
+        color="Importance",
+        color_continuous_scale="Reds",
+    )
+    fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), showlegend=False)
+    return fig
+
+
+def plot_price_elasticity_scatter(charts_data: Dict[str, Any]) -> go.Figure:
+    """
+    Price vs Quantity demand elasticity scatter plot.
+    """
+    pts = charts_data.get("scatter_p_vs_q", [])
+    if not pts:
+        return go.Figure()
+
+    df = pd.DataFrame(pts)
+    fig = px.scatter(
+        df,
+        x="price",
+        y="quantity",
+        labels={"price": "Unit Price ($)", "quantity": "Units Sold / Demand"},
+        title="Price vs Demand Elasticity Curve",
+        trendline="ols",
+        opacity=0.6,
+    )
+    fig.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20))
+    return fig
