@@ -54,4 +54,66 @@ def main():
 
     args = parser.parse_args()
 
-    pass
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    if args.command == "analyze":
+        orchestrator = AgentOrchestrator()
+        b_type = BusinessType(args.type) if args.type else None
+        print(f"\n🚀 Running OmniInsight autonomous multi-agent audit on: {args.file} ...")
+        report = orchestrator.run_from_file(args.file, business_type=b_type)
+
+        md_report = generate_markdown_report(report)
+        print("\n" + "=" * 70)
+        print("EXECUTIVE SUMMARY:")
+        print(report.executive_summary.business_health_overview)
+        print(f"Quantified Value Opportunity: ${report.executive_summary.quantified_roi_opportunity:,.2f}")
+        print("=" * 70)
+
+        if args.output:
+            out_p = Path(args.output)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            out_p.write_text(md_report, encoding="utf-8")
+            print(f"✅ Report saved to: {out_p}")
+
+        if args.export:
+            exporter = ReportExporter()
+            md_p, js_p = exporter.export(report)
+            print(f"✅ Exported reports:\n  - Markdown: {md_p}\n  - JSON: {js_p}")
+
+    elif args.command == "query":
+        p = Path(args.file)
+        if not p.exists():
+            print(f"Error: File not found: {p}")
+            sys.exit(1)
+        df = pd.read_csv(p) if p.suffix == ".csv" else pd.read_excel(p)
+        query_agent = ConversationalQueryAgent()
+        res = query_agent.answer(question=args.question, df=df)
+        print(f"\nQ: {args.question}")
+        print(f"A: {res['answer']}")
+        if res.get("table_data"):
+            print("\nSupporting Data:")
+            print(pd.DataFrame(res["table_data"]).to_string(index=False))
+
+    elif args.command == "generate-samples":
+        p1, p2, p3 = save_sample_datasets()
+        print("✅ Successfully generated benchmark SMB datasets:")
+        print(f"  - Retail: {p1}")
+        print(f"  - SaaS: {p2}")
+        print(f"  - Restaurant: {p3}")
+
+    elif args.command == "serve-api":
+        import uvicorn
+        print(f"🌐 Starting OmniInsight REST API on http://{args.host}:{args.port} (Docs: http://{args.host}:{args.port}/docs)")
+        uvicorn.run("data_intelligence.api.main:app", host=args.host, port=args.port, reload=True)
+
+    elif args.command == "serve-ui":
+        import subprocess
+        ui_path = Path(__file__).parent / "ui" / "app.py"
+        print(f"🖥️ Launching Streamlit Web Dashboard on port {args.port}...")
+        subprocess.run(["streamlit", "run", str(ui_path), "--server.port", str(args.port)])
+
+
+if __name__ == "__main__":
+    main()
