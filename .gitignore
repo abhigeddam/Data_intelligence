@@ -1,8 +1,64 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python cache and bytecode
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-venv/
+*.so
+.Python
+
+# Testing & coverage
 .pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Distribution & packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter & IDEs
+.ipynb_checkpoints
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Data and export files (keep sample fixtures)
+data/uploads/
+outputs/
 reports/*
 !reports/.gitkeep
+logs/
+*.log
